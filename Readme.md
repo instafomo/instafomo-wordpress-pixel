@@ -16,7 +16,7 @@ The Instafomo WordPress Pixel plugin allows you to easily integrate Instafomo's 
 
 ## Installation
 
-1. Upload the plugin files to the `/wp-content/plugins/instafomo-wordpress-pixel` directory, or install the plugin through the WordPress plugins screen directly.
+1. Upload the plugin files to the `/wp-content/plugins/instafomo-wp-pixel` directory, or install the plugin through the WordPress plugins screen directly.
 2. Activate the plugin through the 'Plugins' screen in WordPress.
 3. Use the Instafomo Pixel screen to configure the plugin.
 
@@ -30,8 +30,8 @@ The Instafomo WordPress Pixel plugin allows you to easily integrate Instafomo's 
 
 ## Screenshots
 
-1. **Settings Page**: ![Settings Page](assets/settings-page.png)
-2. **Campaigns List**: ![Campaigns List](assets/campaigns-list.png)
+1. **Settings Page**: ![Settings Page](src/instafomo-wp-pixel/assets/settings-page.png)
+2. **Campaigns List**: ![Campaigns List](src/instafomo-wp-pixel/assets/campaigns-list.png)
 
 ## Frequently Asked Questions
 
