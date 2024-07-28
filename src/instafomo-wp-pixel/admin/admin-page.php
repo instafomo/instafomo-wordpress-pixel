@@ -1,88 +1,122 @@
 <?php
+/**
+ * Plugin Name: Instafomo WP Pixel
+ * Plugin URI: https://instafomo.com/plugin
+ * Description: Adds Instafomo pixel tracking to your WordPress site.
+ * Version: 1.0
+ * Author: Instafomo
+ * Author URI: https://instafomo.com
+ * License: GPLv2 or later
+ * License URI: http://www.gnu.org/licenses/gpl-2.0.html
+ * Text Domain: instafomo-wp-pixel
+ */
 
-// Add settings menu and submenu
-add_action('admin_menu', 'instafomo_add_admin_menu');
+// Enqueue admin scripts and styles
+function instafomo_enqueue_admin_scripts() {
+    wp_enqueue_script( 'instafomo-admin-script', plugin_dir_url( __FILE__ ) . 'js/admin.js', array( 'jquery' ), '1.0', true );
+    wp_enqueue_style( 'instafomo-admin-style', plugin_dir_url( __FILE__ ) . 'css/admin.css', array(), '1.0' );
+}
+add_action( 'admin_enqueue_scripts', 'instafomo_enqueue_admin_scripts' );
 
-function instafomo_add_admin_menu() {
+// Create menu item
+function instafomo_create_menu() {
     add_menu_page(
-        'Instafomo Pixel',
-        'Instafomo Pixel',
+        esc_html__( 'Instafomo Pixel Settings', 'instafomo-wp-pixel' ),
+        esc_html__( 'Instafomo Pixel', 'instafomo-wp-pixel' ),
         'manage_options',
-        'instafomo_pixel',
-        'instafomo_admin_page',
-        'dashicons-chart-line'
+        'instafomo-pixel-settings',
+        'instafomo_settings_page',
+        plugin_dir_url( __FILE__ ) . 'assets/logo.png'
     );
 }
+add_action( 'admin_menu', 'instafomo_create_menu' );
 
-function instafomo_admin_page() {
+// Settings page
+function instafomo_settings_page() {
+    if ( !current_user_can( 'manage_options' ) ) {
+        return;
+    }
+
+    if ( isset( $_POST['instafomo_nonce'] ) && wp_verify_nonce( $_POST['instafomo_nonce'], 'instafomo_save_settings' ) ) {
+        $api_key = sanitize_text_field( $_POST['instafomo_api_key'] );
+        update_option( 'instafomo_api_key', $api_key );
+        instafomo_sync_campaigns();
+    }
+
+    $api_key = get_option( 'instafomo_api_key' );
     ?>
     <div class="wrap">
-        <h1>
-            <img src="<?php echo INSTAFOMO_PIXEL_URL; ?>assets/instafomo-logo.png" alt="Instafomo Logo" style="max-height: 50px; vertical-align: middle; margin-right: 10px;">
-        </h1>
-        <h2 class="nav-tab-wrapper">
-            <a href="?page=instafomo_pixel&tab=settings" class="nav-tab <?php echo isset($_GET['tab']) && $_GET['tab'] == 'settings' ? 'nav-tab-active' : ''; ?>">Settings</a>
-            <a href="?page=instafomo_pixel&tab=campaigns" class="nav-tab <?php echo isset($_GET['tab']) && $_GET['tab'] == 'campaigns' ? 'nav-tab-active' : ''; ?>">Campaigns</a>
-        </h2>
-        <div class="tab-content">
-            <?php
-            $tab = isset($_GET['tab']) ? $_GET['tab'] : 'settings';
-            switch ($tab) {
-                case 'campaigns':
-                    instafomo_campaigns_page();
-                    break;
-                case 'settings':
-                default:
-                    instafomo_settings_page();
-                    break;
-            }
-            ?>
+        <h1><?php esc_html_e( 'Instafomo Pixel Settings', 'instafomo-wp-pixel' ); ?></h1>
+        <form method="post" action="">
+            <?php wp_nonce_field( 'instafomo_save_settings', 'instafomo_nonce' ); ?>
+            <table class="form-table">
+                <tr valign="top">
+                    <th scope="row"><?php esc_html_e( 'API Key', 'instafomo-wp-pixel' ); ?></th>
+                    <td>
+                        <input type="text" name="instafomo_api_key" value="<?php echo esc_attr( $api_key ); ?>" required />
+                        <p class="description"><?php esc_html_e( 'You can find your API key by clicking', 'instafomo-wp-pixel' ); ?> <a href="https://instafomo.com/login?redirect=account-api" target="_blank"><?php esc_html_e( 'here', 'instafomo-wp-pixel' ); ?></a>.</p>
+                    </td>
+                </tr>
+            </table>
+            <?php submit_button( __( 'Save Settings', 'instafomo-wp-pixel' ) ); ?>
+        </form>
+        <h2><?php esc_html_e( 'Campaigns', 'instafomo-wp-pixel' ); ?></h2>
+        <button id="sync-campaigns" class="button button-primary"><?php esc_html_e( 'Sync Campaigns', 'instafomo-wp-pixel' ); ?></button>
+        <div id="campaigns-list">
+            <?php instafomo_display_campaigns(); ?>
         </div>
     </div>
     <?php
 }
 
-function instafomo_settings_page() {
-    ?>
-    <form action='options.php' method='post'>
-        <?php
-        settings_fields('instafomoSettings');
-        do_settings_sections('instafomoSettings');
-        submit_button();
-        ?>
-    </form>
-    <button class="button button-primary" onclick="location.href='<?php echo admin_url('admin.php?page=instafomo_pixel&tab=campaigns&sync=1'); ?>'">Sync Campaigns</button>
-    <?php
+// Sync campaigns function
+function instafomo_sync_campaigns() {
+    $api_key = get_option( 'instafomo_api_key' );
+
+    if ( empty( $api_key ) ) {
+        return;
+    }
+
+    $response = wp_remote_get( 'https://instafomo.com/api/campaigns/', array(
+        'headers' => array(
+            'Authorization' => 'Bearer ' . esc_attr( $api_key )
+        )
+    ) );
+
+    if ( is_wp_error( $response ) ) {
+        return;
+    }
+
+    $body = wp_remote_retrieve_body( $response );
+    $data = json_decode( $body, true );
+
+    if ( isset( $data['data'] ) ) {
+        update_option( 'instafomo_campaigns', $data['data'] );
+    }
 }
 
-function instafomo_campaigns_page() {
-    if (isset($_GET['sync']) && $_GET['sync'] == 1) {
-        instafomo_sync_campaigns();
-        echo '<div class="notice notice-success is-dismissible"><p>Campaigns synchronized successfully.</p></div>';
+// Display campaigns function
+function instafomo_display_campaigns() {
+    $campaigns = get_option( 'instafomo_campaigns', array() );
+
+    if ( empty( $campaigns ) ) {
+        echo '<p>' . esc_html__( 'No campaigns found.', 'instafomo-wp-pixel' ) . '</p>';
+        return;
     }
-    ?>
-    <div class="wrap">
-        <h2>Campaigns</h2>
-        <?php
-        $campaigns = get_option('instafomo_campaigns');
-        if ($campaigns && is_array($campaigns)) {
-            echo '<table class="wp-list-table widefat fixed striped">';
-            echo '<thead><tr><th>ID</th><th>Name</th><th>Domain</th><th>Pixel Key</th></tr></thead>';
-            echo '<tbody>';
-            foreach ($campaigns as $campaign) {
-                echo '<tr>';
-                echo '<td>' . esc_html($campaign['id']) . '</td>';
-                echo '<td>' . esc_html($campaign['name']) . '</td>';
-                echo '<td>' . esc_html($campaign['domain']) . '</td>';
-                echo '<td>' . esc_html($campaign['pixel_key']) . '</td>';
-                echo '</tr>';
-            }
-            echo '</tbody>';
-            echo '</table>';
-        } else {
-            echo '<p>No campaigns found. Please sync campaigns.</p>';
-        }
-        ?>
-    </div>
-    <?php
+
+    echo '<ul>';
+    foreach ( $campaigns as $campaign ) {
+        echo '<li>' . esc_html( $campaign['name'] ) . ' - <code>&lt;script defer src="https://instafomo.com/pixel/' . esc_attr( $campaign['pixel_key'] ) . '"&gt;&lt;/script&gt;</code></li>';
+    }
+    echo '</ul>';
 }
+
+// Enqueue frontend scripts
+function instafomo_enqueue_scripts() {
+    $campaigns = get_option( 'instafomo_campaigns', array() );
+
+    foreach ( $campaigns as $campaign ) {
+        wp_enqueue_script( 'instafomo-pixel-' . esc_attr( $campaign['id'] ), 'https://instafomo.com/pixel/' . esc_attr( $campaign['pixel_key'] ), array(), null, true );
+    }
+}
+add_action( 'wp_enqueue_scripts', 'instafomo_enqueue_scripts' );
