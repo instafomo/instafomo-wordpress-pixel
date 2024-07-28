@@ -30,8 +30,8 @@ The Instafomo WordPress Pixel plugin allows you to easily integrate Instafomo's 
 
 ## Screenshots
 
-1. **Settings Page**: ![Settings Page](assets/settings-page.png)
-2. **Campaigns List**: ![Campaigns List](assets/campaigns-list.png)
+1. **Settings Page**: ![Settings Page](src/instafomo-wp-pixel/assets/settings-page.png)
+2. **Campaigns List**: ![Campaigns List](src/instafomo-wp-pixel/assets/campaigns-list.png)
 
 ## Frequently Asked Questions
 
